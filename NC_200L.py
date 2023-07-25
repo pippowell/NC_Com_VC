@@ -255,6 +255,10 @@ if train_method == "200L":
             writer = csv.writer(file)
             writer.writerow([val_loss.item()])
 
+        with open(f'nc_200L_losses_per_epoch_test.csv', mode='a', newline='') as file:
+            writer = csv.writer(file)
+            writer.writerow([test_loss.item()])
+
         with open(f'nc_200L_acc_per_epoch_train.csv', mode='a', newline='') as file:
             writer = csv.writer(file)
             writer.writerow([train_acc])
@@ -265,11 +269,7 @@ if train_method == "200L":
 
         with open(f'nc_200L_acc_per_epoch_test.csv', mode='a', newline='') as file:
             writer = csv.writer(file)
-            writer.writerow([train_acc])
-
-        with open(f'nc_200L_acc_per_epoch_test.csv', mode='a', newline='') as file:
-            writer = csv.writer(file)
-            writer.writerow([val_acc])
+            writer.writerow([test_acc])
 
         print(f'finished epoch {epoch} with val acc at {val_acc}.')
 
