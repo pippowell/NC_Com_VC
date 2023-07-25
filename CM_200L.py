@@ -1,7 +1,7 @@
 # Define options
-network = 'lstm' # 'EEGChannelNet' or 'lstm' or 'lstm5' or 'lstm10'
+network = 'lstm10' # 'EEGChannelNet' or 'lstm' or 'lstm5'
 train_method = "200L"
-chosen_dataset = "raw"
+chosen_dataset = "5_95"
 batch_size = 16
 epochs = 200
 

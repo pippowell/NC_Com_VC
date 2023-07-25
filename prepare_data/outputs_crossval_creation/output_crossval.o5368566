@@ -1,0 +1,16 @@
+running in shell:  /bin/sh
+*** loading spack modules ***
+:/home/p/ppowell/miniconda3/envs/EEG_Vis_CL/lib/
+*** set workdir ***
+Number of files in DS being used: 11965
+(5264600, 128)
+The sections of the dataset file are: 
+dict_keys(['splits'])
+There are this many splits in the file:
+5
+the first set of splits is
+[    0     1     2 ... 11962 11963 11964]
+[    3     6     7 ... 11943 11944 11951]
+with sizes
+9572
+2393

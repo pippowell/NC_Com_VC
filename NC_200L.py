@@ -1,11 +1,10 @@
 # Define options
 train_method = "200L"
 chosen_dataset = "5_95_quarter"
-epochs = 2
+epochs = 25
 
 from neucube import Reservoir
 from neucube.encoder import Delta
-from neucube.validation.learn_pipeline import learn_pipeline
 from neucube.validation.pipeline import Pipeline
 from neucube.sampler import SpikeCount, DeSNN
 
@@ -120,6 +119,8 @@ val_split = val_split[0]
 
 if train_method == "200L":
 
+    ds_start = time.time()
+
     filenameslist = ['sam' + str(i) + '_eeg.csv' for i in range(11965)]
 
     dfs = []
@@ -144,6 +145,14 @@ if train_method == "200L":
     print(X.shape)
     print(y.shape)
 
+    ds_end = time.time()
+    elapsed_time = ds_end - ds_start
+    elapsed_hours = int(elapsed_time/3600)
+    elapsed_minutes = int((elapsed_time % 3600)/60)
+    print (f'ds load took {elapsed_hours} hours and {elapsed_minutes} minutes.')
+
+    prep_start = time.time()
+
     m1 = Reservoir(inputs=128)
     out = m1.simulate(X)
     print("\n\nSummary of Reservoir")
@@ -159,17 +168,26 @@ if train_method == "200L":
 
     loss_fn = nn.CrossEntropyLoss()
 
+    #max_iter on clf increased from original code due to convergence failure errors in early runs
     res = Reservoir(inputs=128)
     sam = SpikeCount()
-    clf = LogisticRegression(solver='liblinear')
-    pipe = learn_pipeline(res, sam, clf)
+    clf = LogisticRegression(solver='liblinear', max_iter = 10000)
+    pipe = Pipeline(res, sam, clf)
+
+    prep_end = time.time()
+    elapsed_time = prep_end - prep_start
+    elapsed_hours = int(elapsed_time/3600)
+    elapsed_minutes = int((elapsed_time % 3600)/60)
+    print (f'Prep took {elapsed_hours} hours and {elapsed_minutes} minutes.')
 
     for epoch in range(1, epochs+1):
+
+        epoch_start = time.time()
 
         x_train = X[train_split]
         y_train = y[train_split]
 
-        res, clf = pipe.fit(x_train, y_train)
+        pipe.fit(x_train, y_train)
         pred = pipe.predict(x_train)
 
         pred = torch.from_numpy(pred)
@@ -186,15 +204,6 @@ if train_method == "200L":
 
         pred = pipe.predict(x_val)
 
-        pred = torch.from_numpy(pred)
-        y_val = torch.from_numpy(y_val)
-        pred = pred.type(torch.float64)
-        y_val = y_val.type(torch.float64)
-
-        val_loss = loss_fn(pred.unsqueeze(0), y_val.unsqueeze(0))
-        correct = pred.eq(y_val).sum().item()
-        val_acc = correct / y_val.size(0)
-
         for value in pred:
             with open(f'nc_200L_predictions_cm_val.csv', mode='a', newline='') as file:
                 writer = csv.writer(file)
@@ -205,31 +214,38 @@ if train_method == "200L":
                 writer = csv.writer(file)
                 writer.writerow([value])
 
-        if epoch == epoch:
+        pred = torch.from_numpy(pred)
+        y_val = torch.from_numpy(y_val)
+        pred = pred.type(torch.float64)
+        y_val = y_val.type(torch.float64)
 
-            x_test = X[test_split]
-            y_test = y[test_split]
+        val_loss = loss_fn(pred.unsqueeze(0), y_val.unsqueeze(0))
+        correct = pred.eq(y_val).sum().item()
+        val_acc = correct / y_val.size(0)
 
-            pred = pipe.predict(x_test)
+        x_test = X[test_split]
+        y_test = y[test_split]
 
-            pred = torch.from_numpy(pred)
-            y_test = torch.from_numpy(y_test)
-            pred = pred.type(torch.float64)
-            y_test = y_test.type(torch.float64)
+        pred = pipe.predict(x_test)
 
-            test_loss = loss_fn(pred.unsqueeze(0), y_test.unsqueeze(0))
-            correct = pred.eq(y_test).sum().item()
-            test_acc = correct / y_test.size(0)
+        for value in pred:
+            with open(f'nc_200L_predictions_cm_test.csv', mode='a', newline='') as file:
+                writer = csv.writer(file)
+                writer.writerow([value])
 
-            for value in pred:
-                with open(f'nc_200L_predictions_cm_test.csv', mode='a', newline='') as file:
-                    writer = csv.writer(file)
-                    writer.writerow([value])
+        for value in y_test:
+            with open(f'nc_200L_targets_cm_test.csv', mode='a', newline='') as file:
+                writer = csv.writer(file)
+                writer.writerow([value])
 
-            for value in y_test:
-                with open(f'nc_200L_targets_cm_test.csv', mode='a', newline='') as file:
-                    writer = csv.writer(file)
-                    writer.writerow([value])
+        pred = torch.from_numpy(pred)
+        y_test = torch.from_numpy(y_test)
+        pred = pred.type(torch.float64)
+        y_test = y_test.type(torch.float64)
+
+        test_loss = loss_fn(pred.unsqueeze(0), y_test.unsqueeze(0))
+        correct = pred.eq(y_test).sum().item()
+        test_acc = correct / y_test.size(0)
 
         with open(f'nc_200L_losses_per_epoch_train.csv', mode='a', newline='') as file:
             writer = csv.writer(file)
@@ -247,9 +263,21 @@ if train_method == "200L":
             writer = csv.writer(file)
             writer.writerow([val_acc])
 
-        pipe = learn_pipeline(res, sam, clf)
+        with open(f'nc_200L_acc_per_epoch_test.csv', mode='a', newline='') as file:
+            writer = csv.writer(file)
+            writer.writerow([train_acc])
+
+        with open(f'nc_200L_acc_per_epoch_test.csv', mode='a', newline='') as file:
+            writer = csv.writer(file)
+            writer.writerow([val_acc])
 
         print(f'finished epoch {epoch} with val acc at {val_acc}.')
+
+        epoch_end = time.time()
+        elapsed_time = epoch_end - epoch_start
+        elapsed_hours = int(elapsed_time/3600)
+        elapsed_minutes = int((elapsed_time % 3600)/60)
+        print (f'Epoch took {elapsed_hours} hours and {elapsed_minutes} minutes.')
 
     with open('nc_200L_predictions_cm_test.csv', newline='') as f:
         reader = csv.reader(f)
@@ -273,7 +301,6 @@ if train_method == "200L":
 
     print(f'test loss at {test_loss}')
     print(f'test acc at {test_acc}')
-    print(f'average val accuracy is {accuracy_score(targets_cm_val, predictions_cm_val)}')
 
     test_confusion_matrix = confusion_matrix(targets_cm_test, predictions_cm_test)
     val_confusion_matrix = confusion_matrix(targets_cm_val, predictions_cm_val)
@@ -300,6 +327,11 @@ if train_method == "200L":
         data = list(reader)
         losses_per_epoch_val = [int(float(item)) for sublist in data for item in sublist]
 
+    with open('nc_200L_losses_per_epoch_test.csv', newline='') as f:
+        reader = csv.reader(f)
+        data = list(reader)
+        losses_per_epoch_test = [int(float(item)) for sublist in data for item in sublist]
+
     with open('nc_200L_acc_per_epoch_train.csv', newline='') as f:
         reader = csv.reader(f)
         data = list(reader)
@@ -309,6 +341,11 @@ if train_method == "200L":
         reader = csv.reader(f)
         data = list(reader)
         acc_per_epoch_val = [int(float(item)) for sublist in data for item in sublist]
+
+    with open('nc_200L_acc_per_epoch_test.csv', newline='') as f:
+        reader = csv.reader(f)
+        data = list(reader)
+        acc_per_epoch_test = [int(float(item)) for sublist in data for item in sublist]
 
     # graph the losses and accuracies
     x = [i for i in range(1, epochs + 1)]
@@ -337,35 +374,55 @@ if train_method == "200L":
     fig2.update_layout(title=f"NeuCube Epochs {chosen_dataset} Val Acc Loss")
     fig2.write_image(f"neucube_val_loss_acc_200L_{chosen_dataset}.png")
 
+    fig3 = go.Figure()
+    fig3.add_trace(go.Scatter(x=x,
+                              y=losses_per_epoch_test,
+                              mode='lines',
+                              name='Val Losses per Epoch'))
+    fig3.add_trace(go.Scatter(x=x,
+                              y=acc_per_epoch_test,
+                              mode='lines',
+                              name='Val Accuracies per Epoch'))
+    fig3.update_layout(title=f"NeuCube Epochs {chosen_dataset} Test Acc Loss")
+    fig3.write_image(f"neucube_test_loss_acc_200L_{chosen_dataset}.png")
+
     print('Loss Acc Graphs Saved')
 
     with open('nc_200L_losses_per_epoch_train.csv', mode='r') as file1, \
         open('nc_200L_losses_per_epoch_val.csv', mode='r') as file2, \
-        open('nc_200L_acc_per_epoch_train.csv', mode='r') as file3, \
-        open('nc_200L_acc_per_epoch_val.csv', mode='r') as file4, \
+        open('nc_200L_losses_per_epoch_test.csv', mode='r') as file3, \
+        open('nc_200L_acc_per_epoch_train.csv', mode='r') as file4, \
+        open('nc_200L_acc_per_epoch_val.csv', mode='r') as file5, \
+        open('nc_200L_acc_per_epoch_test.csv', mode='r') as file6, \
         open(f'nc_200L_{chosen_dataset}_{epochs}epochs_variable_printout.csv', mode='w', newline='') as output:
 
         reader1 = csv.reader(file1)
         reader2 = csv.reader(file2)
         reader3 = csv.reader(file3)
         reader4 = csv.reader(file4)
+        reader5 = csv.reader(file5)
+        reader6 = csv.reader(file6)
 
         writer = csv.writer(output)
 
         header = ['Epoch Losses Train',
                   'Epoch Losses Val',
+                  'Epoch Losses Test'
                   'Epoch Accs Train',
-                  'Epoch Accs Val']
+                  'Epoch Accs Val',
+                  'Epoch Accs Test']
 
         writer.writerow(header)
 
-        for value1, value2, value3, value4 in zip(reader1, reader2, reader3, reader4):
-            writer.writerow(value1 + value2 + value3 + value4)
+        for value1, value2, value3, value4, value5, value6 in zip(reader1, reader2, reader3, reader4, reader5, reader6):
+            writer.writerow(value1 + value2 + value3 + value4+ value5 + value6)
 
     os.remove('nc_200L_losses_per_epoch_train.csv')
     os.remove('nc_200L_losses_per_epoch_val.csv')
+    os.remove('nc_200L_losses_per_epoch_test.csv')
     os.remove('nc_200L_acc_per_epoch_train.csv')
     os.remove('nc_200L_acc_per_epoch_val.csv')
+    os.remove('nc_200L_acc_per_epoch_test.csv')
     os.remove('nc_200L_predictions_cm_test.csv')
     os.remove('nc_200L_targets_cm_test.csv')
     os.remove('nc_200L_predictions_cm_val.csv')
@@ -427,6 +484,8 @@ elif train_method == "5K":
         print(X.shape)
         print(y.shape)
 
+    prep_start = time.time()
+
     m1 = Reservoir(inputs=128)
     out = m1.simulate(X)
     print("\n\nSummary of Reservoir")
@@ -450,12 +509,29 @@ elif train_method == "5K":
     with open(split_5K_test, 'rb') as f:
         test_index = pickle.load(f)
 
+    prep_end = time.time()
+    elapsed_time = prep_end - prep_start
+    elapsed_hours = int(elapsed_time/3600)
+    elapsed_minutes = int((elapsed_time % 3600)/60)
+    print (f'Prep took {elapsed_hours} hours and {elapsed_minutes} minutes.')
+
     for i in range(5):
 
+        pipe_start = time.time()
+
+        #max_iter on clf increased from original code due to convergence failure errors in early runs
         res = Reservoir(inputs=128)
         sam = SpikeCount()
-        clf = LogisticRegression(solver='liblinear')
+        clf = LogisticRegression(solver='liblinear', max_iter = 10000)
         pipe = Pipeline(res, sam, clf)
+
+        pipe_end = time.time()
+        elapsed_time = pipe_end - pipe_start
+        elapsed_hours = int(elapsed_time/3600)
+        elapsed_minutes = int((elapsed_time % 3600)/60)
+        print (f'Pipe took {elapsed_hours} hours and {elapsed_minutes} minutes.')
+
+        fold_start = time.time()
 
         X_train, X_test = X[train_index[i]], X[test_index[i]]
         y_train, y_test = y[train_index[i]], y[test_index[i]]
@@ -511,6 +587,12 @@ elif train_method == "5K":
 
         print(f'test acc at {test_acc} in fold {i}')
 
+        fold_end = time.time()
+        elapsed_time = fold_end - fold_start
+        elapsed_hours = int(elapsed_time/3600)
+        elapsed_minutes = int((elapsed_time % 3600)/60)
+        print (f'Fold took {elapsed_hours} hours and {elapsed_minutes} minutes.')
+
     with open('nc_5K_targets_cm_test.csv', newline='') as f:
         reader = csv.reader(f)
         data = list(reader)
@@ -521,7 +603,7 @@ elif train_method == "5K":
         data = list(reader)
         predictions_cm_test = [int(float(item)) for sublist in data for item in sublist]
 
-    print(f'The final test accuracy is {accuracy_score(targets_cm_test, predictions_cm_test)}.')
+    print(f'Average test accuracy is {accuracy_score(targets_cm_test, predictions_cm_test)}.')
 
     confusion_matrix = confusion_matrix(targets_cm_test, predictions_cm_test)
     disp = ConfusionMatrixDisplay(confusion_matrix=confusion_matrix)

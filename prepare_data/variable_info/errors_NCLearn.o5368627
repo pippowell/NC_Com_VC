@@ -1,0 +1,6 @@
+/usr/bin/id: cannot find name for group ID 302
+Traceback (most recent call last):
+  File "/share/klab/ppowell/EEG_CN_Classification/Com_Models.py", line 268, in <module>
+    predictions_cm[split].extend(pred)
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'int' object has no attribute 'extend'

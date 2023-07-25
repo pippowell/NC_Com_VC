@@ -1,0 +1,27 @@
+/usr/bin/id: cannot find name for group ID 302
+Traceback (most recent call last):
+  File "/share/klab/ppowell/EEG_CN_Classification/Com_Models.py", line 301, in <module>
+    if epoch%opt.saveCheck == 0:
+                        ^^^^^^^^^
+  File "/home/student/p/ppowell/miniconda3/envs/EEG_Vis_CL/lib/python3.11/site-packages/sklearn/metrics/_classification.py", line 317, in confusion_matrix
+    y_type, y_true, y_pred = _check_targets(y_true, y_pred)
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/student/p/ppowell/miniconda3/envs/EEG_Vis_CL/lib/python3.11/site-packages/sklearn/metrics/_classification.py", line 87, in _check_targets
+    type_true = type_of_target(y_true, input_name="y_true")
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/student/p/ppowell/miniconda3/envs/EEG_Vis_CL/lib/python3.11/site-packages/sklearn/utils/multiclass.py", line 309, in type_of_target
+    if is_multilabel(y):
+       ^^^^^^^^^^^^^^^^
+  File "/home/student/p/ppowell/miniconda3/envs/EEG_Vis_CL/lib/python3.11/site-packages/sklearn/utils/multiclass.py", line 169, in is_multilabel
+    y = check_array(y, dtype=None, **check_y_kwargs)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/student/p/ppowell/miniconda3/envs/EEG_Vis_CL/lib/python3.11/site-packages/sklearn/utils/validation.py", line 879, in check_array
+    array = _asarray_with_order(array, order=order, dtype=dtype, xp=xp)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/student/p/ppowell/miniconda3/envs/EEG_Vis_CL/lib/python3.11/site-packages/sklearn/utils/_array_api.py", line 185, in _asarray_with_order
+    array = numpy.asarray(array, order=order, dtype=dtype)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/student/p/ppowell/.local/lib/python3.11/site-packages/torch/_tensor.py", line 970, in __array__
+    return self.numpy()
+           ^^^^^^^^^^^^
+TypeError: can't convert cuda:0 device type tensor to numpy. Use Tensor.cpu() to copy the tensor to host memory first.
