@@ -3,7 +3,7 @@ network = 'lstm10' # 'EEGChannelNet' or 'lstm' or 'lstm5'
 train_method = "200L"
 chosen_dataset = "5_95"
 batch_size = 16
-epochs = 200
+epochs = 50
 
 import argparse
 
@@ -263,8 +263,18 @@ if train_method == "200L":
                         writer = csv.writer(file)
                         writer.writerow([value])
 
+                for value in pred_cm:
+                    with open(f'cm_200L_predictions_cm_{split}_{epoch}.csv', mode='a', newline='') as file:
+                        writer = csv.writer(file)
+                        writer.writerow([value])
+
                 for value in target_cm:
                     with open(f'cm_200L_targets_cm_{split}.csv', mode='a', newline='') as file:
+                        writer = csv.writer(file)
+                        writer.writerow([value])
+
+                for value in target_cm:
+                    with open(f'cm_200L_targets_cm_{split}_{epoch}.csv', mode='a', newline='') as file:
                         writer = csv.writer(file)
                         writer.writerow([value])
 
@@ -470,12 +480,9 @@ if train_method == "200L":
     os.remove('cm_200L_acc_per_epoch_train.csv')
     os.remove('cm_200L_acc_per_epoch_val.csv')
     os.remove('cm_200L_acc_per_epoch_test.csv')
-    os.remove('cm_200L_predictions_cm_test.csv')
-    os.remove('cm_200L_targets_cm_test.csv')
-    os.remove('cm_200L_predictions_cm_val.csv')
-    os.remove('cm_200L_targets_cm_val.csv')
     os.remove('cm_200L_predictions_cm_train.csv')
     os.remove('cm_200L_targets_cm_train.csv')
+
 
 elif train_method == "5K":
 
@@ -695,8 +702,6 @@ elif train_method == "5K":
     os.remove('cm_5K_losses_per_fold_test.csv')
     os.remove('cm_5K_acc_per_fold_train.csv')
     os.remove('cm_5K_acc_per_fold_test.csv')
-    os.remove('cm_5K_predictions_cm_test.csv')
-    os.remove('cm_5K_targets_cm_test.csv')
     os.remove('cm_5K_predictions_cm_train.csv')
     os.remove('cm_5K_targets_cm_train.csv')
 

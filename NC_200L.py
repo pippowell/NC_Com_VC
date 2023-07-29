@@ -1,7 +1,7 @@
 # Define options
 train_method = "200L"
 chosen_dataset = "5_95_quarter"
-epochs = 25
+epochs = 50
 
 from neucube import Reservoir
 from neucube.encoder import Delta
@@ -180,6 +180,10 @@ if train_method == "200L":
     elapsed_minutes = int((elapsed_time % 3600)/60)
     print (f'Prep took {elapsed_hours} hours and {elapsed_minutes} minutes.')
 
+    best_val = 0
+    best_epoch = 0
+    test_best_val = 0
+
     for epoch in range(1, epochs+1):
 
         epoch_start = time.time()
@@ -209,8 +213,18 @@ if train_method == "200L":
                 writer = csv.writer(file)
                 writer.writerow([value])
 
+        for value in pred:
+            with open(f'nc_pred_val_{epoch}.csv', mode='a', newline='') as file:
+                writer = csv.writer(file)
+                writer.writerow([value])
+
         for value in y_val:
             with open(f'nc_200L_targets_cm_val.csv', mode='a', newline='') as file:
+                writer = csv.writer(file)
+                writer.writerow([value])
+
+        for value in y_val:
+            with open(f'nc_target_val_{epoch}.csv', mode='a', newline='') as file:
                 writer = csv.writer(file)
                 writer.writerow([value])
 
@@ -233,8 +247,18 @@ if train_method == "200L":
                 writer = csv.writer(file)
                 writer.writerow([value])
 
+        for value in pred:
+            with open(f'nc_pred_test_{epoch}.csv', mode='a', newline='') as file:
+                writer = csv.writer(file)
+                writer.writerow([value])
+
         for value in y_test:
             with open(f'nc_200L_targets_cm_test.csv', mode='a', newline='') as file:
+                writer = csv.writer(file)
+                writer.writerow([value])
+
+        for value in y_test:
+            with open(f'nc_target_test_{epoch}.csv', mode='a', newline='') as file:
                 writer = csv.writer(file)
                 writer.writerow([value])
 
@@ -246,6 +270,11 @@ if train_method == "200L":
         test_loss = loss_fn(pred.unsqueeze(0), y_test.unsqueeze(0))
         correct = pred.eq(y_test).sum().item()
         test_acc = correct / y_test.size(0)
+
+        if val_acc > best_val:
+            best_val = val_acc
+            best_epoch = epoch
+            test_best_val = test_acc
 
         with open(f'nc_200L_losses_per_epoch_train.csv', mode='a', newline='') as file:
             writer = csv.writer(file)
@@ -271,7 +300,7 @@ if train_method == "200L":
             writer = csv.writer(file)
             writer.writerow([test_acc])
 
-        print(f'finished epoch {epoch} with val acc at {val_acc}.')
+        print(f'Test acc at best val acc - {best_val} - is {test_best_val}, achieved on epoch {best_epoch} .')
 
         epoch_end = time.time()
         elapsed_time = epoch_end - epoch_start
@@ -423,10 +452,6 @@ if train_method == "200L":
     os.remove('nc_200L_acc_per_epoch_train.csv')
     os.remove('nc_200L_acc_per_epoch_val.csv')
     os.remove('nc_200L_acc_per_epoch_test.csv')
-    os.remove('nc_200L_predictions_cm_test.csv')
-    os.remove('nc_200L_targets_cm_test.csv')
-    os.remove('nc_200L_predictions_cm_val.csv')
-    os.remove('nc_200L_targets_cm_val.csv')
 
 elif train_method == "5K":
 
@@ -692,8 +717,6 @@ elif train_method == "5K":
     os.remove('nc_5K_losses_per_fold_test.csv')
     os.remove('nc_5K_acc_per_fold_train.csv')
     os.remove('nc_5K_acc_per_fold_test.csv')
-    os.remove('nc_5K_predictions_cm_test.csv')
-    os.remove('nc_5K_targets_cm_test.csv')
 
 end_time = time.time()
 
