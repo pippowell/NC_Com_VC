@@ -183,6 +183,8 @@ start_time = time.time()
 
 if train_method == "200L":
 
+    prep_start = time.time()
+
     # Load dataset
     dataset = EEGDataset(opt.eeg_dataset)
 
@@ -206,7 +208,17 @@ if train_method == "200L":
     best_accuracy_val = 0
     best_epoch = 0
 
+    prep_stop = time.time()
+    elapsed_time = prep_stop - prep_start
+    elapsed_hours = int(elapsed_time / 3600)
+    elapsed_minutes = int((elapsed_time % 3600) / 60)
+
+    print(f'Prep took {elapsed_hours} hours and {elapsed_minutes} minutes.')
+
     for epoch in range(1, opt.epochs+1):
+
+        epoch_start = time.time()
+
         # Initialize loss/accuracy variables
         losses = {"train": 0, "val": 0, "test": 0}
         accuracies = {"train": 0, "val": 0, "test": 0}
@@ -259,22 +271,22 @@ if train_method == "200L":
                 target_cm = target_cm.numpy()
 
                 for value in pred_cm:
-                    with open(f'cm_200L_predictions_cm_{split}.csv', mode='a', newline='') as file:
+                    with open(f'{network}_{chosen_dataset}_200L_predictions_cm_{split}.csv', mode='a', newline='') as file:
                         writer = csv.writer(file)
                         writer.writerow([value])
 
                 for value in pred_cm:
-                    with open(f'cm_200L_predictions_cm_{split}_{epoch}.csv', mode='a', newline='') as file:
+                    with open(f'{network}_{chosen_dataset}_200L_predictions_cm_{split}_{epoch}.csv', mode='a', newline='') as file:
                         writer = csv.writer(file)
                         writer.writerow([value])
 
                 for value in target_cm:
-                    with open(f'cm_200L_targets_cm_{split}.csv', mode='a', newline='') as file:
+                    with open(f'{network}_{chosen_dataset}_200L_targets_cm_{split}.csv', mode='a', newline='') as file:
                         writer = csv.writer(file)
                         writer.writerow([value])
 
                 for value in target_cm:
-                    with open(f'cm_200L_targets_cm_{split}_{epoch}.csv', mode='a', newline='') as file:
+                    with open(f'{network}_{chosen_dataset}_200L_targets_cm_{split}_{epoch}.csv', mode='a', newline='') as file:
                         writer = csv.writer(file)
                         writer.writerow([value])
 
@@ -311,46 +323,54 @@ if train_method == "200L":
                                                                                                              best_accuracy, best_epoch, opt.time_low,opt.time_high, opt.model_type,opt.subject))
 
 
-        with open(f'cm_200L_losses_per_epoch_train.csv', mode='a', newline='') as file:
+        with open(f'{network}_{chosen_dataset}_200L_losses_per_epoch_train.csv', mode='a', newline='') as file:
             writer = csv.writer(file)
             writer.writerow([TrL])
 
-        with open(f'cm_200L_losses_per_epoch_val.csv', mode='a', newline='') as file:
+        with open(f'{network}_{chosen_dataset}_200L_losses_per_epoch_val.csv', mode='a', newline='') as file:
             writer = csv.writer(file)
             writer.writerow([VL])
 
-        with open(f'cm_200L_losses_per_epoch_test.csv', mode='a', newline='') as file:
+        with open(f'{network}_{chosen_dataset}_200L_losses_per_epoch_test.csv', mode='a', newline='') as file:
             writer = csv.writer(file)
             writer.writerow([TeL])
 
-        with open(f'cm_200L_acc_per_epoch_train.csv', mode='a', newline='') as file:
+        with open(f'{network}_{chosen_dataset}_200L_acc_per_epoch_train.csv', mode='a', newline='') as file:
             writer = csv.writer(file)
             writer.writerow([TrA])
 
-        with open(f'cm_200L_acc_per_epoch_val.csv', mode='a', newline='') as file:
+        with open(f'{network}_{chosen_dataset}_200L_acc_per_epoch_val.csv', mode='a', newline='') as file:
             writer = csv.writer(file)
             writer.writerow([VA])
 
-        with open(f'cm_200L_acc_per_epoch_test.csv', mode='a', newline='') as file:
+        with open(f'{network}_{chosen_dataset}_200L_acc_per_epoch_test.csv', mode='a', newline='') as file:
             writer = csv.writer(file)
             writer.writerow([TeA])
 
-    with open('cm_200L_predictions_cm_test.csv', newline='') as f:
+        epoch_stop = time.time()
+
+        elapsed_time = epoch_stop - epoch_start
+        elapsed_hours = int(elapsed_time / 3600)
+        elapsed_minutes = int((elapsed_time % 3600) / 60)
+
+        print(f'Epoch took {elapsed_hours} hours and {elapsed_minutes} minutes.')
+
+    with open(f'{network}_{chosen_dataset}_200L_predictions_cm_test.csv', newline='') as f:
         reader = csv.reader(f)
         data = list(reader)
         predictions_cm_test = [int(float(item)) for sublist in data for item in sublist]
 
-    with open('cm_200L_predictions_cm_val.csv', newline='') as f:
+    with open(f'{network}_{chosen_dataset}_200L_predictions_cm_val.csv', newline='') as f:
         reader = csv.reader(f)
         data = list(reader)
         predictions_cm_val = [int(float(item)) for sublist in data for item in sublist]
 
-    with open('cm_200L_targets_cm_test.csv', newline='') as f:
+    with open(f'{network}_{chosen_dataset}_200L_targets_cm_test.csv', newline='') as f:
         reader = csv.reader(f)
         data = list(reader)
         targets_cm_test = [int(float(item)) for sublist in data for item in sublist]
 
-    with open('cm_200L_targets_cm_val.csv', newline='') as f:
+    with open(f'{network}_{chosen_dataset}_200L_targets_cm_val.csv', newline='') as f:
         reader = csv.reader(f)
         data = list(reader)
         targets_cm_val = [int(float(item)) for sublist in data for item in sublist]
@@ -374,32 +394,32 @@ if train_method == "200L":
 
     print('Confusion Matrices Saved')
 
-    with open('cm_200L_losses_per_epoch_train.csv', newline='') as f:
+    with open(f'{network}_{chosen_dataset}_200L_losses_per_epoch_train.csv', newline='') as f:
         reader = csv.reader(f)
         data = list(reader)
         losses_per_epoch_train = [int(float(item)) for sublist in data for item in sublist]
 
-    with open('cm_200L_losses_per_epoch_test.csv', newline='') as f:
+    with open(f'{network}_{chosen_dataset}_200L_losses_per_epoch_test.csv', newline='') as f:
         reader = csv.reader(f)
         data = list(reader)
         losses_per_epoch_test = [int(float(item)) for sublist in data for item in sublist]
 
-    with open('cm_200L_losses_per_epoch_val.csv', newline='') as f:
+    with open(f'{network}_{chosen_dataset}_200L_losses_per_epoch_val.csv', newline='') as f:
         reader = csv.reader(f)
         data = list(reader)
         losses_per_epoch_val = [int(float(item)) for sublist in data for item in sublist]
 
-    with open('cm_200L_acc_per_epoch_train.csv', newline='') as f:
+    with open(f'{network}_{chosen_dataset}_200L_acc_per_epoch_train.csv', newline='') as f:
         reader = csv.reader(f)
         data = list(reader)
         acc_per_epoch_train = [int(float(item)) for sublist in data for item in sublist]
 
-    with open('cm_200L_acc_per_epoch_test.csv', newline='') as f:
+    with open(f'{network}_{chosen_dataset}_200L_acc_per_epoch_test.csv', newline='') as f:
         reader = csv.reader(f)
         data = list(reader)
         acc_per_epoch_test = [int(float(item)) for sublist in data for item in sublist]
 
-    with open('cm_200L_acc_per_epoch_val.csv', newline='') as f:
+    with open(f'{network}_{chosen_dataset}_200L_acc_per_epoch_val.csv', newline='') as f:
         reader = csv.reader(f)
         data = list(reader)
         acc_per_epoch_val = [int(float(item)) for sublist in data for item in sublist]
@@ -445,12 +465,12 @@ if train_method == "200L":
 
     print('Loss Acc Graphs Saved')
 
-    with open('cm_200L_losses_per_epoch_train.csv', mode='r') as file1, \
-        open('cm_200L_losses_per_epoch_val.csv', mode='r') as file2, \
-        open('cm_200L_losses_per_epoch_test.csv', mode='r') as file3, \
-        open('cm_200L_acc_per_epoch_train.csv', mode='r') as file4, \
-        open('cm_200L_acc_per_epoch_val.csv', mode='r') as file5, \
-        open('cm_200L_acc_per_epoch_test.csv', mode='r') as file6, \
+    with open(f'{network}_{chosen_dataset}_200L_losses_per_epoch_train.csv', mode='r') as file1, \
+        open(f'{network}_{chosen_dataset}_200L_losses_per_epoch_val.csv', mode='r') as file2, \
+        open(f'{network}_{chosen_dataset}_200L_losses_per_epoch_test.csv', mode='r') as file3, \
+        open(f'{network}_{chosen_dataset}_200L_acc_per_epoch_train.csv', mode='r') as file4, \
+        open(f'{network}_{chosen_dataset}_200L_acc_per_epoch_val.csv', mode='r') as file5, \
+        open(f'{network}_{chosen_dataset}_200L_acc_per_epoch_test.csv', mode='r') as file6, \
         open(f'{network}_{chosen_dataset}_200L_{epochs}epochs_variable_printout.csv', mode='w', newline='') as output:
 
         reader1 = csv.reader(file1)
@@ -474,14 +494,14 @@ if train_method == "200L":
         for value1, value2, value3, value4, value5, value6 in zip(reader1, reader2, reader3, reader4, reader5, reader6):
             writer.writerow(value1 + value2 + value3 + value4 + value5 + value6)
 
-    os.remove('cm_200L_losses_per_epoch_train.csv')
-    os.remove('cm_200L_losses_per_epoch_val.csv')
-    os.remove('cm_200L_losses_per_epoch_test.csv')
-    os.remove('cm_200L_acc_per_epoch_train.csv')
-    os.remove('cm_200L_acc_per_epoch_val.csv')
-    os.remove('cm_200L_acc_per_epoch_test.csv')
-    os.remove('cm_200L_predictions_cm_train.csv')
-    os.remove('cm_200L_targets_cm_train.csv')
+    os.remove(f'{network}_{chosen_dataset}_200L_losses_per_epoch_train.csv')
+    os.remove(f'{network}_{chosen_dataset}_200L_losses_per_epoch_val.csv')
+    os.remove(f'{network}_{chosen_dataset}_200L_losses_per_epoch_test.csv')
+    os.remove(f'{network}_{chosen_dataset}_200L_acc_per_epoch_train.csv')
+    os.remove(f'{network}_{chosen_dataset}_200L_acc_per_epoch_val.csv')
+    os.remove(f'{network}_{chosen_dataset}_200L_acc_per_epoch_test.csv')
+    os.remove(f'{network}_{chosen_dataset}_200L_predictions_cm_train.csv')
+    os.remove(f'{network}_{chosen_dataset}_200L_targets_cm_train.csv')
 
 
 elif train_method == "5K":
@@ -564,12 +584,22 @@ elif train_method == "5K":
                 target_cm = target_cm.numpy()
 
                 for value in pred_cm:
-                    with open(f'cm_5K_predictions_cm_{split}.csv', mode='a', newline='') as file:
+                    with open(f'{network}_{chosen_dataset}_5K_predictions_cm_{split}.csv', mode='a', newline='') as file:
                         writer = csv.writer(file)
                         writer.writerow([value])
 
                 for value in target_cm:
-                    with open(f'cm_5K_targets_cm_{split}.csv', mode='a', newline='') as file:
+                    with open(f'{network}_{chosen_dataset}_5K_targets_cm_{split}.csv', mode='a', newline='') as file:
+                        writer = csv.writer(file)
+                        writer.writerow([value])
+
+                for value in pred_cm:
+                    with open(f'{network}_{chosen_dataset}_5K_predictions_cm_{split}.csv', mode='a', newline='') as file:
+                        writer = csv.writer(file)
+                        writer.writerow([value])
+
+                for value in target_cm:
+                    with open(f'{network}_{chosen_dataset}_5K_targets_cm_{split}.csv', mode='a', newline='') as file:
                         writer = csv.writer(file)
                         writer.writerow([value])
 
@@ -589,28 +619,28 @@ elif train_method == "5K":
         train_acc = accuracies["train"] / counts["train"]
         test_acc = accuracies["test"] / counts["test"]
 
-        with open(f'cm_5K_losses_per_fold_train.csv', mode='a', newline='') as file:
+        with open(f'{network}_{chosen_dataset}_5K_losses_per_fold_train.csv', mode='a', newline='') as file:
             writer = csv.writer(file)
             writer.writerow([train_loss])
 
-        with open(f'cm_5K_losses_per_fold_test.csv', mode='a', newline='') as file:
+        with open(f'{network}_{chosen_dataset}_5K_losses_per_fold_test.csv', mode='a', newline='') as file:
             writer = csv.writer(file)
             writer.writerow([test_loss])
 
-        with open(f'cm_5K_acc_per_fold_train.csv', mode='a', newline='') as file:
+        with open(f'{network}_{chosen_dataset}_5K_acc_per_fold_train.csv', mode='a', newline='') as file:
             writer = csv.writer(file)
             writer.writerow([train_acc])
 
-        with open(f'cm_5K_acc_per_fold_test.csv', mode='a', newline='') as file:
+        with open(f'{network}_{chosen_dataset}_5K_acc_per_fold_test.csv', mode='a', newline='') as file:
             writer = csv.writer(file)
             writer.writerow([test_acc])
 
-    with open('cm_5K_targets_cm_test.csv', newline='') as f:
+    with open(f'{network}_{chosen_dataset}_5K_targets_cm_test.csv', newline='') as f:
         reader = csv.reader(f)
         data = list(reader)
         targets_cm_test = [int(float(item)) for sublist in data for item in sublist]
 
-    with open('cm_5K_predictions_cm_test.csv', newline='') as f:
+    with open(f'{network}_{chosen_dataset}_5K_predictions_cm_test.csv', newline='') as f:
         reader = csv.reader(f)
         data = list(reader)
         predictions_cm_test = [int(float(item)) for sublist in data for item in sublist]
@@ -626,22 +656,22 @@ elif train_method == "5K":
 
     print('Confusion Matrix Saved')
 
-    with open('cm_5K_losses_per_fold_train.csv', newline='') as f:
+    with open(f'{network}_{chosen_dataset}_5K_losses_per_fold_train.csv', newline='') as f:
         reader = csv.reader(f)
         data = list(reader)
         losses_per_fold_train = [int(float(item)) for sublist in data for item in sublist]
 
-    with open('cm_5K_losses_per_fold_test.csv', newline='') as f:
+    with open(f'{network}_{chosen_dataset}_5K_losses_per_fold_test.csv', newline='') as f:
         reader = csv.reader(f)
         data = list(reader)
         losses_per_fold_test = [int(float(item)) for sublist in data for item in sublist]
 
-    with open('cm_5K_acc_per_fold_train.csv', newline='') as f:
+    with open(f'{network}_{chosen_dataset}_5K_acc_per_fold_train.csv', newline='') as f:
         reader = csv.reader(f)
         data = list(reader)
         acc_per_fold_train = [int(float(item)) for sublist in data for item in sublist]
 
-    with open('cm_5K_acc_per_fold_test.csv', newline='') as f:
+    with open(f'{network}_{chosen_dataset}_5K_acc_per_fold_test.csv', newline='') as f:
         reader = csv.reader(f)
         data = list(reader)
         acc_per_fold_test = [int(float(item)) for sublist in data for item in sublist]
@@ -675,10 +705,10 @@ elif train_method == "5K":
 
     print('Loss Acc Graphs Saved')
 
-    with open('cm_5K_losses_per_fold_train.csv', mode='r') as file1, \
-        open('cm_5K_losses_per_fold_test.csv', mode='r') as file2, \
-        open('cm_5K_acc_per_fold_train.csv', mode='r') as file3, \
-        open('cm_5K_acc_per_fold_test.csv', mode='r') as file4, \
+    with open(f'{network}_{chosen_dataset}_5K_losses_per_fold_train.csv', mode='r') as file1, \
+        open(f'{network}_{chosen_dataset}_5K_losses_per_fold_test.csv', mode='r') as file2, \
+        open(f'{network}_{chosen_dataset}_5K_acc_per_fold_train.csv', mode='r') as file3, \
+        open(f'{network}_{chosen_dataset}_5K_acc_per_fold_test.csv', mode='r') as file4, \
         open(f'{network}_5K_{chosen_dataset}_variable_printout.csv', mode='w', newline='') as output:
 
         reader1 = csv.reader(file1)
@@ -698,12 +728,12 @@ elif train_method == "5K":
         for value1, value2, value3, value4 in zip(reader1, reader2, reader3, reader4):
             writer.writerow(value1 + value2 + value3 + value4)
 
-    os.remove('cm_5K_losses_per_fold_train.csv')
-    os.remove('cm_5K_losses_per_fold_test.csv')
-    os.remove('cm_5K_acc_per_fold_train.csv')
-    os.remove('cm_5K_acc_per_fold_test.csv')
-    os.remove('cm_5K_predictions_cm_train.csv')
-    os.remove('cm_5K_targets_cm_train.csv')
+    os.remove(f'{network}_{chosen_dataset}_5K_losses_per_fold_train.csv')
+    os.remove(f'{network}_{chosen_dataset}_5K_losses_per_fold_test.csv')
+    os.remove(f'{network}_{chosen_dataset}_5K_acc_per_fold_train.csv')
+    os.remove(f'{network}_{chosen_dataset}_5K_acc_per_fold_test.csv')
+    os.remove(f'{network}_{chosen_dataset}_5K_predictions_cm_train.csv')
+    os.remove(f'{network}_{chosen_dataset}_5K_targets_cm_train.csv')
 
 end_time = time.time()
 
