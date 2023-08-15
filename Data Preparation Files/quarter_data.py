@@ -120,6 +120,6 @@ for i in range(1,7):
 # save the new quartered dataset file and the new quartered splits file
 # note that the .pth files for the quarted data are not actually in training, but are instead used only to create the appropriate csv files for training NeuCube
 # when the comparison models train, the quartered splits file already handles reducing the data size to a quarter of the original
-torch.save(a, f'{master_path}{eeg_range}_quarter.pth')
+torch.save(a, f'{master_path}{eeg_range}_quarterpth')
 torch.save(s, f'{master_path}quarter_splits.pth')
 
