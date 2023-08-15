@@ -1,13 +1,18 @@
-# Define options
+'''
+This file trains NeuCube on selected data. The basic training code comes from the original NeuCube code, with modifications made around it to apply the network in the
+epoch learning paradigm and to implement loss/acc graphing.
+'''
+
+# Define which training paradigm and dataset are to be used, as well as how many epochs to train for
 train_method = "200L"
 chosen_dataset = "5_95_quarter"
 epochs = 50
 
+# import the NeuCube files and all needed supplementary packages
 from neucube import Reservoir
 from neucube.encoder import Delta
 from neucube.validation.pipeline import Pipeline
 from neucube.sampler import SpikeCount, DeSNN
-
 import torch
 import pandas as pd
 from sklearn.metrics import accuracy_score as accuracy_score
@@ -21,6 +26,7 @@ import pickle
 import csv
 import os
 
+# define the various splits and data paths based on the dataset selected
 if chosen_dataset == "raw":
     data_path = '/share/klab/datasets/EEG_Visual/NeuCube_Format/Raw/'
     label_path = '/share/klab/datasets/EEG_Visual/NeuCube_Format/Raw/'
@@ -101,10 +107,13 @@ elif chosen_dataset == "55_95_quarter":
     split_5K_test = '/share/klab/datasets/EEG_Visual/NeuCube_Format/test_k_splits_quarter.pkl'
     quarter = True
 
+# print a note of the parameters the training will be using
 print(f'Training NeuCube with the following parameters: {epochs} epochs, train method {train_method}, dataset {chosen_dataset}.')
 
+# record the start time of the training
 start_time = time.time()
 
+# load the train, test, and val indices based on the locations defined above, which depend on the dataset selected
 train_split = train_split.transpose()
 train_split = train_split.to_numpy()
 train_split = train_split[0]
@@ -117,12 +126,18 @@ val_split = val_split.transpose()
 val_split = val_split.to_numpy()
 val_split = val_split[0]
 
+# define the training procedure for the epoch training paradigm
 if train_method == "200L":
 
+    # record the start time of the DS load
     ds_start = time.time()
 
+    # lines 132 - 143 from the original NeuCube training code, lightly modified to select the appropriate time range in the EEG
+
+    # create a list of the file names for the full DS
     filenameslist = ['sam' + str(i) + '_eeg.csv' for i in range(11965)]
 
+    # load the EEG segments into a pandas dataframe, selecting 20-460ms after stimulus onset
     dfs = []
     for filename in filenameslist:
         df = pd.read_csv(data_path + filename, header=None)
@@ -132,12 +147,16 @@ if train_method == "200L":
 
     fulldf = pd.concat(dfs)
 
-    # data path because with 200L, NC always works with the whole DS as the indices are designed for all files being present
+    # load the label file
+    # data path versus label path because with 200L, NC always works with the whole DS as the indices are designed for all files being present
     labels = pd.read_csv(f'{data_path}tar_class_labels.csv', header=None)
     y = labels.values.flatten()
 
+    # check the ds size
     print(fulldf.shape)
 
+    # lines 155 - 158 from the original NeuCube code, lightly modified to the parameters of the current dataset
+    # load the dataset into a tensor of size files x segment length x features
     X = torch.tensor(fulldf.values.reshape(11965, 440, 128))
     encoder = Delta(threshold=0.8)
     X = encoder.encode_dataset(X)
@@ -145,14 +164,18 @@ if train_method == "200L":
     print(X.shape)
     print(y.shape)
 
+    # record how long loading the ds took
     ds_end = time.time()
     elapsed_time = ds_end - ds_start
     elapsed_hours = int(elapsed_time/3600)
     elapsed_minutes = int((elapsed_time % 3600)/60)
     print (f'ds load took {elapsed_hours} hours and {elapsed_minutes} minutes.')
 
+    # record how long preparing the reservoir and samplers takes
     prep_start = time.time()
 
+    # prepare the reservoir and the samplers
+    # lines 174 - 185 from the original NeuCube code
     m1 = Reservoir(inputs=128)
     out = m1.simulate(X)
     print("\n\nSummary of Reservoir")
@@ -166,43 +189,64 @@ if train_method == "200L":
     sampler2 = DeSNN()
     state_vec2 = sampler2.sample(out)
 
+    # define the loss function to be used
     loss_fn = nn.CrossEntropyLoss()
 
-    #max_iter on clf increased from original code due to convergence failure errors in early runs
+    # define the training pipeline
+    # lines 193 -196 from the original NeuCube code
+    # max_iter on clf increased from original code due to convergence failure errors in early runs
     res = Reservoir(inputs=128)
     sam = SpikeCount()
     clf = LogisticRegression(solver='liblinear', max_iter = 10000)
     pipe = Pipeline(res, sam, clf)
 
+    # record how long preparation took
     prep_end = time.time()
     elapsed_time = prep_end - prep_start
     elapsed_hours = int(elapsed_time/3600)
     elapsed_minutes = int((elapsed_time % 3600)/60)
     print (f'Prep took {elapsed_hours} hours and {elapsed_minutes} minutes.')
 
+    # instantiate variables for the best validation accuracy, best epoch, and best test accuracy at best validation accuracy
     best_val = 0
     best_epoch = 0
     test_best_val = 0
 
+    # the code for the application of NeuCube to the data in this section largely follows the original code, though updated to allow training across epochs and with a
+    # train/val/test split versus the train/test split used in the original code
+    # iterate over the epochs
     for epoch in range(1, epochs+1):
 
+        # record the epoch start time
         epoch_start = time.time()
 
+        # load the train data and label splits and then fit the pipeline to them
+        # lines 218 - 222 from the original NeuCube code, though pipe.fit is now called on each epoch to allow NeuCube to train across epochs
         x_train = X[train_split]
         y_train = y[train_split]
 
         pipe.fit(x_train, y_train)
         pred = pipe.predict(x_train)
 
+        # convert the predictions and true labels to torch tensors and calculate the loss and accuracy for this epoch
         pred = torch.from_numpy(pred)
         y_train = torch.from_numpy(y_train)
         pred = pred.type(torch.float64)
         y_train = y_train.type(torch.float64)
 
+        print('pred is')
+        print(pred)
+        print(pred.unsqueeze(0))
+        print('y_train is')
+        print(y_train)
+        print(y_train.unsqueeze(0))
+
         train_loss = loss_fn(pred.unsqueeze(0), y_train.unsqueeze(0))
         correct = pred.eq(y_train).sum().item()
         train_acc = correct/y_train.size(0)
 
+        # repeat the same procedure for the validation split, this time saving the predictions and targets into files to save them per epoch and across all epochs
+        # for later construction of the confusion matrices
         x_val = X[val_split]
         y_val = y[val_split]
 
@@ -237,6 +281,7 @@ if train_method == "200L":
         correct = pred.eq(y_val).sum().item()
         val_acc = correct / y_val.size(0)
 
+        # repeat the same procedure with the test split
         x_test = X[test_split]
         y_test = y[test_split]
 
@@ -271,11 +316,13 @@ if train_method == "200L":
         correct = pred.eq(y_test).sum().item()
         test_acc = correct / y_test.size(0)
 
+        # if the validation accuracy on this epoch is better than the previous best val acc, update the tracking variables
         if val_acc > best_val:
             best_val = val_acc
             best_epoch = epoch
             test_best_val = test_acc
 
+        # record the losses and accs for this epoch
         with open(f'nc_200L_losses_per_epoch_train.csv', mode='a', newline='') as file:
             writer = csv.writer(file)
             writer.writerow([train_loss.item()])
@@ -300,14 +347,17 @@ if train_method == "200L":
             writer = csv.writer(file)
             writer.writerow([test_acc])
 
+        # print the current best test accuracy at the best validation accuracy as of this epoch
         print(f'Test acc at best val acc - {best_val} - is {test_best_val}, achieved on epoch {best_epoch} .')
 
+        # print the time the epoch took
         epoch_end = time.time()
         elapsed_time = epoch_end - epoch_start
         elapsed_hours = int(elapsed_time/3600)
         elapsed_minutes = int((elapsed_time % 3600)/60)
         print (f'Epoch took {elapsed_hours} hours and {elapsed_minutes} minutes.')
 
+    # load the predictions and targets for creating the confusion matrices
     with open('nc_200L_predictions_cm_test.csv', newline='') as f:
         reader = csv.reader(f)
         data = list(reader)
@@ -328,9 +378,11 @@ if train_method == "200L":
         data = list(reader)
         targets_cm_val = [int(float(item)) for sublist in data for item in sublist]
 
+    # print the current test loss and accuracy on this epoch
     print(f'test loss at {test_loss}')
     print(f'test acc at {test_acc}')
 
+    # print the confusion matrix (note that this is adapted from the method used in the original NeuCube code
     test_confusion_matrix = confusion_matrix(targets_cm_test, predictions_cm_test)
     val_confusion_matrix = confusion_matrix(targets_cm_val, predictions_cm_val)
 
@@ -346,6 +398,7 @@ if train_method == "200L":
 
     print('Confusion Matrices Saved')
 
+    # load the accs and losses
     with open('nc_200L_losses_per_epoch_train.csv', newline='') as f:
         reader = csv.reader(f)
         data = list(reader)
@@ -417,6 +470,7 @@ if train_method == "200L":
 
     print('Loss Acc Graphs Saved')
 
+    # assemble the losses and accs in a master file and remove the unneeded csv files
     with open('nc_200L_losses_per_epoch_train.csv', mode='r') as file1, \
         open('nc_200L_losses_per_epoch_val.csv', mode='r') as file2, \
         open('nc_200L_losses_per_epoch_test.csv', mode='r') as file3, \
@@ -436,7 +490,7 @@ if train_method == "200L":
 
         header = ['Epoch Losses Train',
                   'Epoch Losses Val',
-                  'Epoch Losses Test'
+                  'Epoch Losses Test',
                   'Epoch Accs Train',
                   'Epoch Accs Val',
                   'Epoch Accs Test']
@@ -453,10 +507,13 @@ if train_method == "200L":
     os.remove('nc_200L_acc_per_epoch_val.csv')
     os.remove('nc_200L_acc_per_epoch_test.csv')
 
+# define the training procedure for the cross validation paradigm
 elif train_method == "5K":
 
+    # define the dataset when working with the quartered DS (with the quartered DS in the 5K paradigm, the index values are meant for the DS already in its quartered form)
     if quarter == True:
 
+        # load the segments and create the dataframe (same mix of original NeuCube code and custom code)
         idx = train_split.tolist() + test_split.tolist() + val_split.tolist()
 
         idx.sort()
@@ -484,8 +541,10 @@ elif train_method == "5K":
         print(X.shape)
         print(y.shape)
 
+    # define the dataset when working with the full DS
     elif quarter == False:
 
+        # load the segments and create the dataframe (same mix of original NeuCube code and custom code)
         filenameslist = ['sam' + str(i) + '_eeg.csv' for i in range(11965)]
 
         dfs = []
@@ -509,6 +568,8 @@ elif train_method == "5K":
         print(X.shape)
         print(y.shape)
 
+    # the following code mirrors the code used for the epoch learning paradigm, with the same mix of original and custom code, with any additions noted
+    # note that this code follows the original code for a train/test split
     prep_start = time.time()
 
     m1 = Reservoir(inputs=128)
@@ -526,8 +587,7 @@ elif train_method == "5K":
 
     loss_fn = nn.CrossEntropyLoss()
 
-    # With original method
-
+    # load the 5K splits from the appropriate pkl file
     with open(split_5K_train, 'rb') as f:
         train_index = pickle.load(f)
 
@@ -540,6 +600,7 @@ elif train_method == "5K":
     elapsed_minutes = int((elapsed_time % 3600)/60)
     print (f'Prep took {elapsed_hours} hours and {elapsed_minutes} minutes.')
 
+    # run NeuCube on the splits for each fold
     for i in range(5):
 
         pipe_start = time.time()
@@ -718,6 +779,7 @@ elif train_method == "5K":
     os.remove('nc_5K_acc_per_fold_train.csv')
     os.remove('nc_5K_acc_per_fold_test.csv')
 
+# record how long training took
 end_time = time.time()
 
 elapsed_time = end_time - start_time

@@ -1,12 +1,17 @@
-# Define options
-network = 'lstm10' # 'EEGChannelNet' or 'lstm' or 'lstm5'
-train_method = "200L"
+'''
+This file trains the selected comparison model on the selected data with the selected paramaters. The basic training code largely comes from the original comparison network
+code found in this repository - https://github.com/perceivelab/eeg_visual_classification - with updates made around it to allow training in the cross validation paradigm.
+Confusion matrix generation is additionally implemented with code modelled after that found in the NeuCube training code.
+'''
+
+# Define the network to be trained, the training paradigm, the dataset, the batch size, and the number of epochs to train for
+network = 'lstm10' # 'EEGChannelNet' or 'lstm' or 'lstm5' or 'lstm10'
+train_method = "200L" # 200L for epoch training or 5K for cross validation
 chosen_dataset = "5_95"
 batch_size = 16
 epochs = 50
 
-import argparse
-
+# define the paths to the data and the splits files for both training paradigms based on the selected dataset
 if chosen_dataset == "raw":
     data_path = '/share/klab/datasets/EEG_Visual/eeg_signals_raw_with_mean_std.pth'
     split_path_200L = '/share/klab/datasets/EEG_Visual/block_splits_by_image_all.pth'
@@ -46,6 +51,9 @@ elif chosen_dataset == "55_95_quarter":
     data_path = '/share/klab/datasets/EEG_Visual/eeg_55_95_std.pth'
     split_path_200L = '/share/klab/datasets/EEG_Visual/quarter_splits.pth'
     split_path_5K = '/share/klab/datasets/EEG_Visual/NeuCube_Splits_Quarter.pth'
+
+# set the parameters for the comparison models (code on lines 50 - 91 comes from the original comparison network code)
+import argparse
 
 parser = argparse.ArgumentParser(description="Template")
 
@@ -105,8 +113,10 @@ import time
 from sklearn.metrics import accuracy_score as accuracy_score
 import csv
 
+# define the loss function to be used
 loss_fn = nn.CrossEntropyLoss()
 
+# set up the dataset and splitter classes, which will handle the dataset and splitting it later in the code (lines 115 - 182 are from the original comparison network code)
 # Dataset class
 class EEGDataset:
     
@@ -177,14 +187,19 @@ class Splitter:
         # Return
         return eeg, label
 
+# print a note listing what parameters the training will be using
 print(f'Training {network} with the following parameters: dataset {chosen_dataset}, train method {train_method}, epochs {epochs}.')
 
+# start a timer to record how long training takes
 start_time = time.time()
 
+# define the training sequence for the epoch learning paradigm
 if train_method == "200L":
 
+    # record the start time of the preparatory steps
     prep_start = time.time()
 
+    # load the dataset, model, and other elements needed to operate the comparison models (lines 198 - 218 are from the original comparison networks code)
     # Load dataset
     dataset = EEGDataset(opt.eeg_dataset)
 
@@ -208,6 +223,7 @@ if train_method == "200L":
     best_accuracy_val = 0
     best_epoch = 0
 
+    # record how long preparation took
     prep_stop = time.time()
     elapsed_time = prep_stop - prep_start
     elapsed_hours = int(elapsed_time / 3600)
@@ -215,10 +231,13 @@ if train_method == "200L":
 
     print(f'Prep took {elapsed_hours} hours and {elapsed_minutes} minutes.')
 
+    # iterate over all epochs
     for epoch in range(1, opt.epochs+1):
 
+        # record the start time of the epoch
         epoch_start = time.time()
 
+        # set up training and train the network for the current epoch (236 - 266 are from the original comparison network code)
         # Initialize loss/accuracy variables
         losses = {"train": 0, "val": 0, "test": 0}
         accuracies = {"train": 0, "val": 0, "test": 0}
@@ -252,23 +271,28 @@ if train_method == "200L":
                 # Forward step
                 output = model(input)
 
-                # Compute loss
+                # Record the loss in the form expected later by the comparison models in a new loss variable, to keep it separate from the loss that will be recorded
+                # for graphing
                 loss_backward = F.cross_entropy(output, target)
 
                 # Compute accuracy
-                _,pred = output.data.max(1)
+                _,pred = output.data.max(1) # from the original comparison networks code
 
+                # convert the predictions and targets to torch tensors and then compute the loss using the selected loss function from abvoe
                 pred = pred.type(torch.float64)
                 target = target.type(torch.float64)
                 loss = loss_fn(pred.unsqueeze(0),target.unsqueeze(0))
 
+                # add this loss to the loss list for the current split
                 losses[split] += loss.item()
 
+                # record the predictions and targets in a format that can be used later to construct the comparison networks, adding them to offline csv files to save memory
                 pred_cm = pred.cpu()
                 pred_cm = pred_cm.numpy()
 
                 target_cm = target.cpu()
                 target_cm = target_cm.numpy()
+
 
                 for value in pred_cm:
                     with open(f'{network}_{chosen_dataset}_200L_predictions_cm_{split}.csv', mode='a', newline='') as file:
@@ -290,6 +314,7 @@ if train_method == "200L":
                         writer = csv.writer(file)
                         writer.writerow([value])
 
+                # calculate the accuracy and save it (lines 312 - 321 from the original comparison network code)
                 correct = pred.eq(target.data).sum().item()
                 accuracy = correct/input.data.size(0)
                 accuracies[split] += accuracy
@@ -301,6 +326,8 @@ if train_method == "200L":
                     loss_backward.backward()
                     optimizer.step()
 
+        # calculate the validation accuracy and if its is higher than the current highest validation accuracy, update the current best val accuracy and the test accuracy for this epoch
+        # also record the new best epoch (lines 326 - 344 from the original comparison networks code)
         # Print info at the end of the epoch
         if accuracies["val"]/counts["val"] >= best_accuracy_val:
             best_accuracy_val = accuracies["val"]/counts["val"]
@@ -322,7 +349,7 @@ if train_method == "200L":
                                                                                                              accuracies["test"]/counts["test"],
                                                                                                              best_accuracy, best_epoch, opt.time_low,opt.time_high, opt.model_type,opt.subject))
 
-
+        #save the losses and accuracies in offline csv files
         with open(f'{network}_{chosen_dataset}_200L_losses_per_epoch_train.csv', mode='a', newline='') as file:
             writer = csv.writer(file)
             writer.writerow([TrL])
@@ -347,6 +374,7 @@ if train_method == "200L":
             writer = csv.writer(file)
             writer.writerow([TeA])
 
+        # record the stop time of the epoch
         epoch_stop = time.time()
 
         elapsed_time = epoch_stop - epoch_start
@@ -355,6 +383,7 @@ if train_method == "200L":
 
         print(f'Epoch took {elapsed_hours} hours and {elapsed_minutes} minutes.')
 
+    # load the csv files containing the predictions and targets for constructing the confusion matrices
     with open(f'{network}_{chosen_dataset}_200L_predictions_cm_test.csv', newline='') as f:
         reader = csv.reader(f)
         data = list(reader)
@@ -375,10 +404,12 @@ if train_method == "200L":
         data = list(reader)
         targets_cm_val = [int(float(item)) for sublist in data for item in sublist]
 
+    # print the average test and val accuracy across all epochs
     print(f'average test accuracy is {accuracy_score(targets_cm_test, predictions_cm_test)}')
     print(f'average val accuracy is {accuracy_score(targets_cm_val, predictions_cm_val)}')
 
     # Print the confusion matrices
+    # confusion matrix code modified from that used in the NeuCube code
     test_confusion_matrix = confusion_matrix(targets_cm_test, predictions_cm_test)
     val_confusion_matrix = confusion_matrix(targets_cm_val, predictions_cm_val)
 
@@ -394,6 +425,7 @@ if train_method == "200L":
 
     print('Confusion Matrices Saved')
 
+    # laod the loss and acc values from the offline csv files
     with open(f'{network}_{chosen_dataset}_200L_losses_per_epoch_train.csv', newline='') as f:
         reader = csv.reader(f)
         data = list(reader)
@@ -465,6 +497,7 @@ if train_method == "200L":
 
     print('Loss Acc Graphs Saved')
 
+    # combine the loss and acc values into a master csv file and remove the unneeded csvs
     with open(f'{network}_{chosen_dataset}_200L_losses_per_epoch_train.csv', mode='r') as file1, \
         open(f'{network}_{chosen_dataset}_200L_losses_per_epoch_val.csv', mode='r') as file2, \
         open(f'{network}_{chosen_dataset}_200L_losses_per_epoch_test.csv', mode='r') as file3, \
@@ -503,20 +536,28 @@ if train_method == "200L":
     os.remove(f'{network}_{chosen_dataset}_200L_predictions_cm_train.csv')
     os.remove(f'{network}_{chosen_dataset}_200L_targets_cm_train.csv')
 
-
+# define the training procedure for the cross validation paradigm
 elif train_method == "5K":
+
+    # load the dataset and create the loaders which will handle the fold splits
+    # lines 537 - 544 largely from the original comparison network code, though lines 543 - 545 have been updated to handle using 5 different sets of splits, one per fold
+    # versus one master split
 
     # Load dataset
     dataset = EEGDataset(opt.eeg_dataset)
 
     loaders = []
 
-    # Create loaders
+    # Create loaders for each fold
     for i in range(5):
         loader = {split: DataLoader(Splitter(dataset, split_path = opt.splits_path, split_num = i, split_name = split), batch_size = opt.batch_size, drop_last = True, shuffle = True) for split in ["train", "test"]}
         loaders.append(loader)
 
+    # run through the 5 folds
     for i in range(5):
+
+        # load the model and do the necessary setup (lines 554 - 650 have the same mix of originak comparison network code and custom code, updated to work with the 5 folds
+        # with only train/test splits versus the original train/val/test splits
 
         # Load model
         model_options = {key: int(value) if value.isdigit() else (float(value) if value[0].isdigit() else value) for
@@ -573,6 +614,7 @@ elif train_method == "5K":
 
                 pred = pred.type(torch.float64)
                 target = target.type(torch.float64)
+
                 loss = loss_fn(pred.unsqueeze(0), target.unsqueeze(0))
 
                 losses[split] += loss.item()
@@ -614,6 +656,7 @@ elif train_method == "5K":
                     loss_backward.backward()
                     optimizer.step()
 
+        # calculate the train and test loss and acc and save them in offline csv files
         train_loss = losses["train"]/counts["train"]
         test_loss = losses["test"] / counts["test"]
         train_acc = accuracies["train"] / counts["train"]
@@ -635,6 +678,7 @@ elif train_method == "5K":
             writer = csv.writer(file)
             writer.writerow([test_acc])
 
+    # load the data from the files containing the predictions and targets for the confusion matrix
     with open(f'{network}_{chosen_dataset}_5K_targets_cm_test.csv', newline='') as f:
         reader = csv.reader(f)
         data = list(reader)
@@ -645,9 +689,11 @@ elif train_method == "5K":
         data = list(reader)
         predictions_cm_test = [int(float(item)) for sublist in data for item in sublist]
 
+    # print the average test accuracy across the folds
     print(f'average test accuracy is {accuracy_score(targets_cm_test,predictions_cm_test)}')
 
     # Print the confusion matrices
+    # confusion matrix code modified from that used in the NeuCube code
     test_confusion_matrix = confusion_matrix(targets_cm_test, predictions_cm_test)
     disp_test = ConfusionMatrixDisplay(confusion_matrix=test_confusion_matrix)
     fig, ax = plt.subplots(figsize=(30, 30))
@@ -656,6 +702,7 @@ elif train_method == "5K":
 
     print('Confusion Matrix Saved')
 
+    # load the losses and accs from the offline csv files
     with open(f'{network}_{chosen_dataset}_5K_losses_per_fold_train.csv', newline='') as f:
         reader = csv.reader(f)
         data = list(reader)
@@ -705,6 +752,7 @@ elif train_method == "5K":
 
     print('Loss Acc Graphs Saved')
 
+    # load the losses and accs and add them to a master file, then delete the unneeded csv files
     with open(f'{network}_{chosen_dataset}_5K_losses_per_fold_train.csv', mode='r') as file1, \
         open(f'{network}_{chosen_dataset}_5K_losses_per_fold_test.csv', mode='r') as file2, \
         open(f'{network}_{chosen_dataset}_5K_acc_per_fold_train.csv', mode='r') as file3, \
@@ -735,6 +783,7 @@ elif train_method == "5K":
     os.remove(f'{network}_{chosen_dataset}_5K_predictions_cm_train.csv')
     os.remove(f'{network}_{chosen_dataset}_5K_targets_cm_train.csv')
 
+# record how long training took in the selected paradigm
 end_time = time.time()
 
 elapsed_time = end_time - start_time
